@@ -1,33 +1,83 @@
+#include<EEPROM.h>
 #include "EmonLib.h"
  
 // Crear una instancia EnergyMonitor
 EnergyMonitor energyMonitor;
- 
+int PulsadorElectr = 7;
+int ResetElectr = LOW;
+float SumaPot = 0;
+float ConsumoPot = 0;
+float CantidadEnergia = 0;
+long dt = 0;
+long t0 = 0;
+
 // Voltaje de nuestra red eléctrica
-float voltajeRed = 110.0;
+
  
 void setup()
 {
-  Serial.begin(9600);
- 
-  // Iniciamos la clase indicando
-  // Número de pin: donde tenemos conectado el SCT-013
-  // Valor de calibración: valor obtenido de la calibración teórica
-  energyMonitor.current(0, 2.6);
+  Serial.begin(115200);
+  pinMode(PulsadorElectr, INPUT);
+  EEPROM.get(0,SumaPot);
+  t0 = millis();
 }
+
+float ConsumoAnt=0;
+float IrmsAnt=0;
+int SecondAnt;
  
 void loop()
 {
-  // Obtenemos el valor de la corriente eficaz
-  // Pasamos el número de muestras que queremos tomar
-  double Irms = energyMonitor.calcIrms(1484);
- 
-  // Calculamos la potencia aparente
-  double potencia =  Irms * voltajeRed;
- 
-  // Mostramos la información por el monitor serie
-  Serial.print("Potencia = ");
-  Serial.print(potencia);
-  Serial.print("    Irms = ");
-  Serial.println(Irms);
+  ResetElectr = digitalRead(PulsadorElectr);
+  if(ResetElectr == HIGH){
+    SumaPot = 0;
+  }
+  float Irms = get_corriente();
+  float P = Irms*110.0;
+  dt = millis()-t0;
+  t0=millis();
+  SumaPot = SumaPot + P*(dt/1000);
+  ConsumoPot = (SumaPot)/360000;
+  EEPROM.put(0,SumaPot);  
+
+  Serial.println("Irms: ");
+  Serial.println(Irms,3);
+  Serial.println("A, Potencia: ");
+  Serial.println(P,3);
+  Serial.println("W, consumo: ");
+  Serial.println(ConsumoPot,6);
+  Serial.println("W, Por consumir ");
+  Serial.println(CantidadEnergia);
+}
+
+// Se recibe el valor de la energía pagada
+float get_Cantidad(){
+  float CantidadEnergia = 1000;
+}
+// Se mide la diferencia de energía consumida con la energia pagada
+float Dif_Energia(){
+  float CantidadEnergia = (CantidadEnergia-ConsumoPot);
+}
+
+
+
+// Obtencion de la medición de corriente
+float get_corriente()
+{
+  float voltajeSensor;
+  float Aux_corriente;
+  float corriente = 0;
+  float Sumatoria = 0;
+  long tiempo = millis();
+  int N = 0;
+
+while(millis() - tiempo < 1000)
+{
+  voltajeSensor = analogRead(A1)*(5.0 / 1023.0)-2.503;
+
+  Aux_corriente = voltajeSensor*50;
+
+if(Aux_corriente < 0.1)
+{
+  corriente = 0;
 }

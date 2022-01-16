@@ -7,7 +7,6 @@ Diseño de medidores de energia recargables.
 Partes
 
 1. Medicion de energia 
-
   1.1. Calibración de dispositivo de medición.
   1.2. Código de estabilización de variables.
   1.3. Tranformación de valores a Kwh.

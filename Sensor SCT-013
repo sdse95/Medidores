@@ -4,7 +4,7 @@
 EnergyMonitor energyMonitor;
  
 // Voltaje de nuestra red eléctrica
-float voltajeRed = 220.0;
+float voltajeRed = 110.0;
  
 void setup()
 {

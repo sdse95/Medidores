@@ -1,0 +1,25 @@
+#include <Wire.h>
+
+// definir direciones para los contadores
+# define I2C_SLAVE1_ADDRESS 11
+# define I2C_SLAVE2_ADDRESS 12
+# define I2C_SLAVE3_ADDRESS 13
+# define I2C_SLAVE4_ADDRESS 14
+# define I2C_SLAVE5_ADDRESS 15
+# define I2C_SLAVE6_ADDRESS 16
+# define I2C_SLAVE7_ADDRESS 17
+# define I2C_SLAVE8_ADDRESS 18
+# define I2C_SLAVE9_ADDRESS 19
+
+//inicializar como maestro
+void setup(){
+ Wire.begin();        
+ Serial.begin(9600);  
+ Serial.println(F("Maestro"));
+ delay(1000);
+}
+
+void loop()
+{
+ delay(100);
+}

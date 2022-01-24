@@ -1,83 +1,148 @@
+// C++ code
+
 #include<EEPROM.h>
-#include "EmonLib.h"
- 
-// Crear una instancia EnergyMonitor
-EnergyMonitor energyMonitor;
+
 int PulsadorElectr = 7;
 int ResetElectr = LOW;
-float SumaPot = 0;
-float ConsumoPot = 0;
-float CantidadEnergia = 0;
+float SumaPot_A1 = 0;
+float ConsumoPot_A1 = 0;
+float CantidadEnergia_A1;
+float DifCantidadEnergia_A1;
+float CantidadEnergia_A2 = 0;
+float SumaPot_A2 = 0;
+float ConsumoPot_A2 = 0;
+float Cantidad_energia_A2;
 long dt = 0;
 long t0 = 0;
 
 // Voltaje de nuestra red eléctrica
 
- 
 void setup()
 {
-  Serial.begin(115200);
+  Serial.begin(9600);
   pinMode(PulsadorElectr, INPUT);
-  EEPROM.get(0,SumaPot);
+  EEPROM.get(0,SumaPot_A1);
+
   t0 = millis();
 }
 
-float ConsumoAnt=0;
-float IrmsAnt=0;
-int SecondAnt;
+float ConsumoAnt_A1=0;
+float IrmsAnt_A1=0;
+int SecondAnt_A1;
+
  
 void loop()
 {
   ResetElectr = digitalRead(PulsadorElectr);
   if(ResetElectr == HIGH){
-    SumaPot = 0;
+    SumaPot_A1 = 0;
   }
-  float Irms = get_corriente();
-  float P = Irms*110.0;
+  float Irms_A1 = get_corriente_A1();
+  float EnergiaPaga_A1 = get_Cantidad_A1();
+  float P_A1 = Irms_A1*110.0;
+ 
   dt = millis()-t0;
   t0=millis();
-  SumaPot = SumaPot + P*(dt/1000);
-  ConsumoPot = (SumaPot)/360000;
-  EEPROM.put(0,SumaPot);  
+  SumaPot_A1 = SumaPot_A1 + P_A1*(dt/1000);
+  
+  ConsumoPot_A1 = (SumaPot_A1)/360000;
+  DifCantidadEnergia_A1 = EnergiaPaga_A1-ConsumoPot_A1;
+  EEPROM.put(0,SumaPot_A1);  
+  
 
-  Serial.println("Irms: ");
-  Serial.println(Irms,3);
-  Serial.println("A, Potencia: ");
-  Serial.println(P,3);
+  Serial.println("Irms A1: ");
+  Serial.println(Irms_A1,3);
+  Serial.println("A, Potencia A1: ");
+  Serial.println(P_A1,3);
   Serial.println("W, consumo: ");
-  Serial.println(ConsumoPot,6);
-  Serial.println("W, Por consumir ");
-  Serial.println(CantidadEnergia);
+  Serial.println(ConsumoPot_A1,6);
+  Serial.println("W, Por consumir A1");
+  Serial.println(DifCantidadEnergia_A1);
+
+
+
+//----Por actualizar acceso a la energia comprada------//
+
+
+float get_Cantidad_A1(){
+
+  
+  float CantidadEnergia_A1 = 100000;
+  return CantidadEnergia_A1;
 }
 
-// Se recibe el valor de la energía pagada
-float get_Cantidad(){
-  float CantidadEnergia = 1000;
+//----- Obtener corriente de A1-----//
+
+
+float get_corriente_A1()
+{
+  //Definimos variables
+  float voltajeSensor_A1;
+  float Aux_corriente_A1;
+  float corriente_A1 = 0;
+  float Sumatoria_A1 = 0;
+  long tiempo_A1 = millis();
+  int N_A1 = 0;
+
+while(millis() - tiempo_A1 < 1000)
+{
+  voltajeSensor_A1 = analogRead(A1)*(5.0 / 1023.0)-2.503;
+
+  Aux_corriente_A1 = voltajeSensor_A1*50;
+
+if(Aux_corriente_A1 < 0.1)
+{
+  corriente_A1 = 0;
 }
-// Se mide la diferencia de energía consumida con la energia pagada
-float Dif_Energia(){
-  float CantidadEnergia = (CantidadEnergia-ConsumoPot);
+else
+{
+  corriente_A1 = Aux_corriente_A1;
+}
+  Sumatoria_A1 = Sumatoria_A1 + sq(corriente_A1);
+  N_A1 = N_A1 + 1;
+  delay(1);
+
+}
+Sumatoria_A1 = Sumatoria_A1*2;
+corriente_A1 = sqrt((Sumatoria_A1)/N_A1);
+return(corriente_A1);
+
 }
 
 
+//-------- Obtener corriente A2 --------//
 
-// Obtencion de la medición de corriente
-float get_corriente()
+float get_corriente_A2()
 {
-  float voltajeSensor;
-  float Aux_corriente;
-  float corriente = 0;
-  float Sumatoria = 0;
-  long tiempo = millis();
-  int N = 0;
+//Definimos variables
+  float voltajeSensor_A2;
+  float Aux_corriente_A2;
+  float corriente_A2 = 0;
+  float Sumatoria_A2 = 0;
+  long tiempo_A2 = millis();
+  int N_A2 = 0;
 
-while(millis() - tiempo < 1000)
+while(millis() - tiempo_A2 < 1000)
 {
-  voltajeSensor = analogRead(A1)*(5.0 / 1023.0)-2.503;
+  voltajeSensor_A2 = analogRead(A2)*(5.0 / 1023.0)-2.503;
 
-  Aux_corriente = voltajeSensor*50;
+  Aux_corriente_A2 = voltajeSensor_A2*50;
 
-if(Aux_corriente < 0.1)
+if(Aux_corriente_A2 < 0.1)
 {
-  corriente = 0;
+  corriente_A2 = 0;
+}
+else
+{
+  corriente_A2 = Aux_corriente_A2;
+}
+  Sumatoria_A2 = Sumatoria_A2 + sq(corriente_A2);
+  N_A2 = N_A2 + 1;
+  delay(1);
+
+}
+Sumatoria_A2 = Sumatoria_A2*2;
+corriente_A2 = sqrt((Sumatoria_A2)/N_A2);
+return(corriente_A2);
+
 }

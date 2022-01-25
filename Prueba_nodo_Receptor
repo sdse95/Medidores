@@ -1,0 +1,99 @@
+#include <SPI.h>
+#include "nRF24L01.h"
+#include "RF24.h"
+ 
+//¡ESTOS DEBEN CONFIGURARSE! ¡CAMBIE LA DIRECCIÓN A MEDIDA QUE CARGA A CADA NODO! 
+#define TOTAL_NODES 3 //NÚMERO TOTAL DE NODOS EN LA MALLA
+#define NODE_ADDRESS 1 //la dirección sero indexada de este nodo; los nodos deben numerarse del 0 al TOTAL_NODES-1 //también tenga en cuenta que 255 es la dirección de transmisión 
+ 
+//mantenga los números de secuencia para evitar repetir los mismos mensajes 
+uint8_t  sequence[TOTAL_NODES];
+ 
+//configurar módulo de radio 
+RF24 radio(9,12);
+ 
+//formato del mensaje - ajuste los datos según sea necesario - el resto es obligatorio para que esta malla funcione
+struct 
+{
+ char toAddress;
+ char fromAddress;
+ char fromSequence;
+ long data;
+} msg;
+ 
+//¡no cambies! la lectura es la misma para todos los nodos, la escritura se calcula automáticamente aquí 
+const uint64_t writePipe = 0xF0F0F0F00LL + NODE_ADDRESS;
+const uint64_t readPipe = 0xF0F0F0F0D2LL;
+ 
+ 
+void setup() {
+  // Pon tu código de configuración aquí, para ejecutarlo una vez: 
+  radio.begin();
+  radio.setDataRate(RF24_250KBPS); //velocidad más baja = mayor alcance 
+  radio.setAutoAck(false); // ¡esta es una malla, por lo que no queremos ACK! 
+  radio.setRetries(15, 15);
+  radio.setPayloadSize(sizeof(msg));
+  radio.openWritingPipe(writePipe);
+  radio.openReadingPipe(1, readPipe);
+  radio.startListening();
+}
+ 
+long now = 0;
+ 
+void loop() {
+ 
+ 
+ 
+  if(readAndRepeat()){ /repetirá los mensajes según sea necesario y devolverá falso a menos que haya un paquete para este nodo - ¡LLAME CON FRECUENCIA! 
+   //si esto no devuelve falso, ¡entonces tenemos un paquete para ESTE nodo! 
+    //msg.fromAddress es el nodo que lo envió 
+    //msg.data son los datos en sí mismos 
+    /* 
+       Estos nodos solo envían datos, así que no hacemos nada aquí para este ejemplo 
+       , todavía necesitamos llamar a readAndRepeat porque todavía necesitamos ¡Repita los 
+       paquetes para otros nodos! 
+    */ 
+  }
+ 
+  if(millis() - now > 10000){ //enviar un paquete desde este nodo a la malla cada 10 segundos pero esperar sin bloqueos para que aún podamos ejecutar este bucle y repetir las cosas
+    now = millis(); //ajustar ahora a milisegundos para que esperemos otros 10 segundos antes de enviar de nuevo
+    //sendToMesh(To_Address,Data_To_Send);
+    sendToMesh(0, analogRead(A5)); // enviar al nodo 0 el análogo valor de pin 5 leer - también podría enviar un valor de sensor de temperatura, etc, etc 
+  }
+ 
+}
+ 
+ 
+void sendToMesh(uint8_t toAddress, long data){
+  if(sequence[NODE_ADDRESS]<255)
+    sequence[NODE_ADDRESS]++; //incrementar el conteo de secuencias para este dispositivo
+  else
+    sequence[NODE_ADDRESS] = 0; //establecido en cero si el último fue 255 para que no se desborde; la lógica para lectura también está diseñada para manejar esto
+ 
+  msg.toAddress = toAddress; //establecer la dirección del nodo de destino
+  msg.fromAddress = NODE_ADDRESS; //establecer el desde como este nodo - por supuesto
+  msg.fromSequence = sequence[NODE_ADDRESS]; //establecerlo en el número de secuencia que acabamos de implementar, que debe ser mayor que cualquiera de los nodos que hayan recibido 
+  radio.stopListening(); //apagar recv para que podamos transmitir
+  radio.write(&msg, sizeof(msg));
+  radio.startListening(); //activar recv de nuevo 
+}
+ 
+bool readAndRepeat(){
+  if(radio.read(&msg, sizeof(msg))){ //si tenemos datos entrantes 
+    if(msg.fromAddress!=NODE_ADDRESS){ //asegúrese de que este nodo no lo envió 
+      if(sequence[msg.fromAddress] < msg.fromSequence || (sequence[msg.fromAddress] == 255 && msg.fromSequence == 0)){ //asegúrese de que no lo hayamos repetido ya o lo recibió
+          //incremente la secuencia para esa dirección para que no la repitamos dos veces desde este nodo o la recibamos dos veces 
+          sequence[msg.fromAddress] = msg.fromSequence;
+          if(msg.toAddress==NODE_ADDRESS){ //¿es para este nodo? si es así, devuélvelo verdadero para que podamos usarlo. 
+            return true;
+          }
+          //de lo contrario repítalo - envíelo de vuelta 
+          radio.write(&msg, sizeof(msg));
+          if(msg.toAddress == 255){ //fue una transmisión, así que devuelve verdadero para que hagamos algo con él
+            return true;
+          }
+      }
+    }
+  }
+  return false;
+}

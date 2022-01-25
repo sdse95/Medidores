@@ -1,0 +1,82 @@
+#include <SPI.h>
+#include "RF24.h"
+#include "RF24Network.h"
+#include "RF24Mesh.h"
+#include "DHT.h"
+
+RF24 radio(7,8);
+RF24Network network(radio);
+RF24Mesh mesh(radio,network);
+#define nodeID 2;         // Each node on the mesh needs to have a unique ID number from 1-255
+#define NOMESHMASTER
+
+#define DHTPIN 3           // define which Arduino pin will be used
+#define DHTTYPE DHT21       // define which type of DHT sensor used
+DHT dht(DHTPIN,DHTTYPE);     // Initiate new DHT instance
+
+int photcellPin = A0;
+uint16_t photocellReading;
+
+struct dataOut {
+    uint32_t nid;        // include the nodeID in the payload for reference
+    float temp;
+    float hum;
+    float hindex;
+    uint16_t lux;
+}
+
+uint32_t sendTimer = 0;             // create a timer to track elapsed time between messages
+uint32_t sendInterval = 60000;      // define Interval between send commands
+
+void setup() {
+    Serial.begin(115200);
+    dht.begin();
+    mesh.setNodeID(nodeID);
+    mesh.begin(72,RF24_250KBPS,30000);
+    radio.setPALevel(RF24_PA_LOW);
+    radio.PrintDetails();
+}
+
+void loop() {
+    if (millis() - sendTimer >= sendInterval) {
+        sendData();
+        sendTimer = millis();
+    }
+}
+
+void sendData() {
+    float t = dht.readTemperature();
+    float h = dht.readHumidity();
+    float hic = dht.computeHeatIndex(t,h,false);
+
+    delay(5);
+    photocellReading = analogRead(photocellPin);
+    delay(5);
+
+    // Pass sensor data values to the payload array
+    dataOut payload = {
+        nodeID,
+        t,
+        h,
+        hic,
+        photocellReading
+    };
+
+    // Connect to the mesh network
+    mesh.update();
+
+
+    // Send message payload or troubleshoot send failure
+    if ( !mesh.write(&payload,1,sizeof(payload),0) ) {
+        Serial.println("Send Failed");
+        if ( !mesh.checkConnection() ) {
+            Serial.println("Renewing Address");
+            mesh.renewAddress();
+        } else {
+            Serial.println("Send failed, test ok");
+        }
+    } else {
+        delay(5);
+        Serial.println("Message send successful");
+    }
+}
